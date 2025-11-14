@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapa Minero del Ecuador</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f5f7fa; color: #2c3e50; line-height: 1.6; }
+        .header { background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); color: white; padding: 40px 20px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header h1 { font-size: 2.5em; font-weight: 300; letter-spacing: 1px; margin-bottom: 10px; }
+        .header p { font-size: 1.1em; opacity: 0.9; font-weight: 300; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 40px 20px; }
+        .main-view { background: white; border-radius: 8px; padding: 40px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 30px; }
+        .map-section { display: grid; grid-template-columns: 1.5fr 1fr; gap: 40px; margin-bottom: 40px; }
+        .map-container { text-align: center; }
+        .map-title { font-size: 1.5em; font-weight: 300; color: #2c3e50; margin-bottom: 20px; }
+        .instruction-box { background: #d4edda; border-left: 4px solid #28a745; padding: 20px; margin-bottom: 25px; border-radius: 6px; }
+        .instruction-box strong { color: #155724; display: block; margin-bottom: 10px; font-size: 1.1em; }
+        .instruction-box p { color: #155724; line-height: 1.8; margin: 5px 0; }
+        
+        .map-wrapper { 
+            position: relative; 
+            display: inline-block; 
+            margin: 0 auto;
+            max-width: 100%;
+        }
+        
+        #ecuadorMap { 
+            max-width: 100%; 
+            width: 650px; 
+            height: auto; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15); 
+            display: block; 
+        }
+        
+        .province-labels {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .province-label-btn {
+            position: absolute;
+            background: rgba(52, 73, 94, 0.85);
+            color: white;
+            border: 2px solid white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.75em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            pointer-events: all;
+            white-space: nowrap;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            transform: translate(-50%, -50%);
+        }
+        
+        .province-label-btn:hover {
+            background: #27ae60;
+            transform: translate(-50%, -50%) scale(1.1);
+            box-shadow: 0 4px 12px rgba(39, 174, 96, 0.5);
+        }
+        
+        .sidebar { background: #f8f9fa; padding: 30px; border-radius: 8px; border-left: 4px solid #34495e; }
+        .sidebar h3 { font-size: 1.3em; font-weight: 400; color: #2c3e50; margin-bottom: 20px; }
+        .search-container { margin-bottom: 20px; }
+        .search-input { width: 100%; padding: 15px 20px; border: 2px solid #e8edf2; border-radius: 6px; font-size: 1em; transition: all 0.3s ease; font-family: inherit; }
+        .search-input:focus { outline: none; border-color: #34495e; box-shadow: 0 0 0 3px rgba(52, 73, 94, 0.1); }
+        .province-list { display: grid; grid-template-columns: 1fr; gap: 10px; max-height: 500px; overflow-y: auto; padding: 10px; background: white; border-radius: 6px; }
+        .province-btn { background: #f8f9fa; border: 1px solid #e8edf2; padding: 15px 20px; border-radius: 6px; cursor: pointer; font-size: 0.95em; color: #2c3e50; transition: all 0.3s ease; text-align: left; font-weight: 500; display: flex; justify-content: space-between; align-items: center; }
+        .province-btn:hover { background: #34495e; color: white; border-color: #34495e; transform: translateX(5px); }
+        .province-badge { background: #e8edf2; padding: 4px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600; }
+        .province-btn:hover .province-badge { background: rgba(255,255,255,0.2); color: white; }
+        .stats-box { background: white; padding: 20px; border-radius: 6px; margin-top: 20px; }
+        .stat-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #e8edf2; }
+        .stat-item:last-child { border-bottom: none; }
+        .stat-label { color: #5a6c7d; font-size: 0.9em; }
+        .stat-value { color: #2c3e50; font-weight: 600; }
+        .detail-view { display: none; }
+        .detail-view.active { display: block; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .detail-header { background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%); color: white; padding: 40px; border-radius: 8px; margin-bottom: 30px; }
+        .detail-header h2 { font-size: 2.5em; font-weight: 300; margin-bottom: 10px; }
+        .detail-header .subtitle { font-size: 1.1em; opacity: 0.9; font-weight: 300; }
+        .back-btn { background: transparent; color: white; border: 2px solid white; padding: 12px 30px; border-radius: 6px; cursor: pointer; font-size: 0.95em; font-weight: 500; margin-top: 20px; transition: all 0.3s ease; }
+        .back-btn:hover { background: white; color: #2c3e50; }
+        .minerals-grid { display: grid; gap: 25px; }
+        .mineral-card { background: white; border: 1px solid #e8edf2; border-radius: 8px; overflow: hidden; transition: all 0.3s ease; }
+        .mineral-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.08); transform: translateY(-2px); }
+        .mineral-header { background: #f8f9fa; padding: 20px 25px; border-bottom: 1px solid #e8edf2; }
+        .mineral-name { font-size: 1.4em; font-weight: 500; color: #2c3e50; display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .mineral-icon { width: 12px; height: 12px; background: #34495e; border-radius: 50%; margin-right: 12px; flex-shrink: 0; }
+        .mineral-type-badge { 
+            font-size: 0.5em; 
+            padding: 4px 12px; 
+            border-radius: 12px; 
+            font-weight: 600; 
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .mineral-type-badge.metallic { 
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%); 
+            color: white; 
+        }
+        .mineral-type-badge.non-metallic { 
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%); 
+            color: white; 
+        }
+        .mineral-image-container { 
+            padding: 20px; 
+            text-align: center; 
+            background: white;
+            border-bottom: 1px solid #e8edf2;
+        }
+        .mineral-image { 
+            max-width: 200px; 
+            max-height: 200px; 
+            width: auto; 
+            height: auto; 
+            border-radius: 8px; 
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            object-fit: contain;
+        }
+        .mineral-body { padding: 25px; }
+        .mineral-body ul { list-style: none; }
+        .mineral-body li { padding: 12px 0; padding-left: 30px; position: relative; color: #5a6c7d; font-size: 0.95em; line-height: 1.6; border-bottom: 1px solid #f8f9fa; }
+        .mineral-body li:last-child { border-bottom: none; }
+        .mineral-body li:before { content: ""; position: absolute; left: 0; top: 18px; width: 6px; height: 6px; background: #34495e; border-radius: 50%; }
+        .notes-section { background: white; border-radius: 8px; padding: 40px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .notes-title { font-size: 1.5em; font-weight: 400; color: #2c3e50; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #e8edf2; }
+        .notes-content { background: #fff8e1; border-left: 4px solid #ffa726; padding: 25px; border-radius: 6px; }
+        .notes-content ul { list-style: none; }
+        .notes-content li { padding: 12px 0; padding-left: 30px; position: relative; color: #5a6c7d; font-size: 0.95em; line-height: 1.7; }
+        .notes-content li:before { content: "•"; position: absolute; left: 0; color: #ffa726; font-weight: bold; font-size: 1.3em; }
+        @media (max-width: 1024px) { .map-section { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Mapa Minero del Ecuador</h1>
+        <p>Sistema de Información de Recursos Minerales por Provincia</p>
+    </div>
+
+    <div class="container">
+        <div id="mainView">
+            <div class="main-view">
+                <div class="instruction-box">
+                    <strong>🗺️ Mapa Interactivo</strong>
+                    <p><strong>→</strong> Haga clic en los BOTONES con nombres de provincias sobre el mapa</p>
+                    <p><strong>→</strong> O use la lista de provincias en el panel derecho</p>
+                </div>
+
+                <div class="map-section">
+                    <div class="map-container">
+                        <h2 class="map-title">Mapa Político del Ecuador</h2>
+                        
+                        <div class="map-wrapper">
+                            <img src="mapa-ecuador.jpeg" 
+                                 alt="Mapa del Ecuador" 
+                                 id="ecuadorMap"
+                                 onerror="this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 650 700%22%3E%3Crect fill=%22%23ecf0f1%22 width=%22650%22 height=%22700%22/%3E%3Ctext x=%22325%22 y=%22320%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%2224%22 fill=%22%2334495e%22%3E⚠️ Imagen no encontrada%3C/text%3E%3Ctext x=%22325%22 y=%22360%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%2216%22 fill=%22%237f8c8d%22%3EGuarde su mapa como: mapa-ecuador.jpg%3C/text%3E%3Ctext x=%22325%22 y=%22390%22 text-anchor=%22middle%22 font-family=%22Arial%22 font-size=%2216%22 fill=%22%237f8c8d%22%3Een la misma carpeta que este archivo%3C/text%3E%3C/svg%3E';">
+                            
+                            <!-- Posiciones generadas por el calibrador -->
+                            <div class="province-labels" id="provinceLabels">
+                                <button class="province-label-btn" style="left: 42.4%; top: 7.0%;" onclick="showProvince('Esmeraldas')">Esmeraldas</button>
+                                <button class="province-label-btn" style="left: 27.3%; top: 38.0%;" onclick="showProvince('Manabí')">Manabí</button>
+                                <button class="province-label-btn" style="left: 46.5%; top: 26.3%; font-size: 0.7em;" onclick="showProvince('Santo Domingo de los Tsáchilas')">Sto. Domingo</button>
+                                <button class="province-label-btn" style="left: 40.1%; top: 45.4%;" onclick="showProvince('Los Ríos')">Los Ríos</button>
+                                <button class="province-label-btn" style="left: 35.5%; top: 58.9%;" onclick="showProvince('Guayas')">Guayas</button>
+                                <button class="province-label-btn" style="left: 24.6%; top: 50.9%;" onclick="showProvince('Santa Elena')">Santa Elena</button>
+                                <button class="province-label-btn" style="left: 34.4%; top: 78.7%;" onclick="showProvince('El Oro')">El Oro</button>
+                                <button class="province-label-btn" style="left: 59.4%; top: 6.8%;" onclick="showProvince('Carchi')">Carchi</button>
+                                <button class="province-label-btn" style="left: 53.4%; top: 18.0%;" onclick="showProvince('Imbabura')">Imbabura</button>
+                                <button class="province-label-btn" style="left: 53.7%; top: 30.4%;" onclick="showProvince('Pichincha')">Pichincha</button>
+                                <button class="province-label-btn" style="left: 47.4%; top: 38.4%;" onclick="showProvince('Cotopaxi')">Cotopaxi</button>
+                                <button class="province-label-btn" style="left: 53.4%; top: 41.8%;" onclick="showProvince('Tungurahua')">Tungurahua</button>
+                                <button class="province-label-btn" style="left: 47.6%; top: 49.4%;" onclick="showProvince('Bolívar')">Bolívar</button>
+                                <button class="province-label-btn" style="left: 50.0%; top: 54.5%;" onclick="showProvince('Chimborazo')">Chimborazo</button>
+                                <button class="province-label-btn" style="left: 44.6%; top: 61.1%;" onclick="showProvince('Cañar')">Cañar</button>
+                                <button class="province-label-btn" style="left: 43.5%; top: 70.6%;" onclick="showProvince('Azuay')">Azuay</button>
+                                <button class="province-label-btn" style="left: 38.7%; top: 88.5%;" onclick="showProvince('Loja')">Loja</button>
+                                <button class="province-label-btn" style="left: 70.9%; top: 20.0%;" onclick="showProvince('Sucumbíos')">Sucumbíos</button>
+                                <button class="province-label-btn" style="left: 61.3%; top: 36.1%;" onclick="showProvince('Napo')">Napo</button>
+                                <button class="province-label-btn" style="left: 84.4%; top: 38.2%;" onclick="showProvince('Orellana')">Orellana</button>
+                                <button class="province-label-btn" style="left: 77.6%; top: 51.9%;" onclick="showProvince('Pastaza')">Pastaza</button>
+                                <button class="province-label-btn" style="left: 61.8%; top: 65.5%; font-size: 0.7em;" onclick="showProvince('Morona Santiago')">Morona Santiago</button>
+                                <button class="province-label-btn" style="left: 51.9%; top: 85.7%; font-size: 0.7em;" onclick="showProvince('Zamora Chinchipe')">Zamora Chinchipe</button>
+                                <!-- Galápagos - Región Insular -->
+                                <button class="province-label-btn" style="left: 8%; top: 25%;" onclick="showProvince('Galápagos')">Galápagos</button>
+                            </div>
+                        </div>
+
+                        <p style="color: #7f8c8d; margin-top: 20px; font-size: 0.9em; font-style: italic;">
+                            💡 Haga clic en los botones de provincia sobre el mapa
+                        </p>
+                    </div>
+
+                    <div class="sidebar">
+                        <h3>Buscar Provincia</h3>
+                        <div class="search-container">
+                            <input type="text" id="searchInput" class="search-input" placeholder="🔍 Escriba el nombre...">
+                        </div>
+                        
+                        <div class="province-list" id="provinceList"></div>
+
+                        <div class="stats-box">
+                            <h3 style="font-size: 1.1em; margin-bottom: 15px;">Estadísticas Generales</h3>
+                            <div class="stat-item">
+                                <span class="stat-label">Total Provincias</span>
+                                <span class="stat-value">25</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Minerales Metálicos</span>
+                                <span class="stat-value">7</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Minerales No Metálicos</span>
+                                <span class="stat-value">15+</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Provincias con Datos</span>
+                                <span class="stat-value">21</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="notes-section">
+                <h2 class="notes-title">Marco Legal y Regulatorio</h2>
+                <div class="notes-content">
+                    <ul>
+                        <li>La mayoría de minerales no metálicos se explotan bajo el Régimen de Pequeña Minería</li>
+                        <li>Se requiere concesión minera otorgada por el Ministerio sectorial</li>
+                        <li>Obligatorio presentar Estudios de Impacto Ambiental (EIA)</li>
+                        <li>Supervisión de ARCOM (Agencia de Regulación y Control Minero)</li>
+                        <li>Control ambiental del MAATE (Ministerio del Ambiente, Agua y Transición Ecológica)</li>
+                        <li>Constitución del Ecuador (Art. 408): Los recursos minerales son propiedad del Estado</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div id="detailView" class="detail-view"></div>
+    </div>
+
+    <script>
+        const miningData = {
+            "Azuay": {"minerals": [
+                {"name": "ORO", "type": "Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/oro.jpeg", "info": ["Yacimientos importantes de oro en la provincia", "Explotación tanto artesanal como industrial"]},
+                {"name": "PLATA", "type": "Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/plata.jpeg", "info": ["Depósitos de plata asociados con mineralizaciones auríferas"]},
+                {"name": "CAOLÍN", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/caolin.jpeg", "info": ["Yacimientos importantes de caolín", "Uso en industria cerámica y papel"]},
+                {"name": "ARCILLAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/arcilla.jpeg", "info": ["Depósitos significativos de arcillas", "Uso en construcción y cerámica"]},
+                {"name": "FELDESPATO", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/feldespato.jpeg", "info": ["Yacimientos de feldespato", "Aplicación en industria cerámica y vidrio"]},
+                {"name": "BENTONITA", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/bentonita.jpeg", "info": ["Depósitos de bentonita", "Uso industrial diverso"]},
+                {"name": "MÁRMOL", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/marmol.jpeg", "info": ["Canteras de mármol", "Uso en construcción y decoración"]},
+                {"name": "CALIZA", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/caliza.jpeg", "info": ["Yacimientos de caliza", "Uso en producción de cemento"]}
+            ]},
+            "Bolívar": {"minerals": [
+                {"name": "CAOLÍN", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/caolin.jpeg", "info": ["Depósitos de caolín en la provincia"]},
+                {"name": "ARCILLAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/arcilla.jpeg", "info": ["Yacimientos de arcillas para construcción"]},
+                {"name": "FOSFORITA", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/fosforita.jpeg", "info": ["Depósitos de fosforita", "Potencial uso en fertilizantes"]},
+                {"name": "CALIZAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/caliza.jpeg", "info": ["Yacimientos de calizas"]}
+            ]},
+            "Cañar": {"minerals": [
+                {"name": "CAOLÍN", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/caolin.jpeg", "info": ["Yacimientos de caolín"]},
+                {"name": "ARCILLAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/arcilla.jpeg", "info": ["Depósitos de arcillas"]},
+                {"name": "CALIZA", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/caliza.jpeg", "info": ["Yacimientos de caliza"]}
+            ]},
+            "Carchi": {"minerals": [
+                {"name": "ORO", "type": "Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/oro.jpeg", "info": ["Potencial aurífero en la provincia"]},
+                {"name": "MATERIALES DE CONSTRUCCIÓN", "type": "No Metálico", "image": "", "info": ["Diversos materiales para construcción"]}
+            ]},
+            "Cotopaxi": {"minerals": [
+                {"name": "COBRE", "type": "Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/cobre.jpeg", "info": ["Potencial cuprifero en la zona"]},
+                {"name": "PIEDRA PÓMEZ", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/piedra-pomez.jpeg", "info": ["Principal productor de piedra pómez del país", "Depósitos volcánicos del Cotopaxi"]},
+                {"name": "PUZOLANAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/puzolana.jpeg", "info": ["Depósitos importantes de puzolanas", "Uso en industria del cemento"]},
+                {"name": "ARENA, CASCAJO, LAPILLI", "type": "No Metálico", "image": "", "info": ["Materiales volcánicos diversos"]},
+                {"name": "CALIZA", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/caliza.jpeg", "info": ["Yacimientos de caliza"]}
+            ]},
+            "Chimborazo": {"minerals": [
+                {"name": "CALIZAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/caliza.jpeg", "info": ["Yacimientos importantes de calizas"]},
+                {"name": "ARCILLAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/arcilla.jpeg", "info": ["Depósitos de arcillas"]},
+                {"name": "MATERIALES DE CONSTRUCCIÓN", "type": "No Metálico", "image": "", "info": ["Diversos materiales para construcción"]}
+            ]},
+            "El Oro": {"minerals": [
+                {"name": "ORO", "type": "Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/oro.jpeg", "info": ["Distrito minero histórico de Zaruma-Portovelo", "Una de las zonas auríferas más antiguas del país"]},
+                {"name": "PLATA", "type": "Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/plata.jpeg", "info": ["Depósitos de plata asociados con oro"]},
+                {"name": "FELDESPATO", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/feldespato.jpeg", "info": ["Yacimientos de feldespato"]},
+                {"name": "MATERIALES DE CONSTRUCCIÓN", "type": "No Metálico", "image": "", "info": ["Diversos materiales para construcción"]}
+            ]},
+            "Esmeraldas": {"minerals": [
+                {"name": "ORO", "type": "Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/oro.jpeg", "info": ["Yacimientos auríferos en la provincia"]},
+                {"name": "FOSFORITAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/fosforita.jpeg", "info": ["Depósitos de fosforitas", "Potencial para fertilizantes"]},
+                {"name": "ARENAS NEGRAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/arena-negra.jpeg", "info": [
+                    "Múltiples playas con depósitos de arenas negras",
+                    "Río Verde (1°4'34.55\"N–79°24'49.98\"W) - Muestra SEV-201 prioritaria",
+                    "Tonsupa - 2 sitios (0°53'32.29\"N–79°48'52.29\"W y 0°53'32.50\"N–79°48'53.22\"W)",
+                    "Mompiche - 2 sitios (0°30'37.72\"N–80°1'11.61\"W y 0°30'35.29\"N–80°1'12.50\"W)",
+                    "Muestra SEM-205 (Mompiche): Mayor contenido de titanio - 1.56%",
+                    "Punta Galera (0°49'6.80\"N–80°2'54.86\"W)",
+                    "Rica en óxidos de Fe-Ti de origen volcánico"
+                ]},
+                {"name": "MATERIALES DE CONSTRUCCIÓN", "type": "No Metálico", "image": "", "info": ["Diversos materiales para construcción"]},
+                {"name": "MINERALES NO METÁLICOS", "type": "No Metálico", "image": "", "info": ["Diversos minerales no metálicos"]}
+            ]},
+            "Guayas": {"minerals": [
+                {"name": "ARCILLAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/arcilla.jpeg", "info": ["Principal productor nacional de arcillas", "Importante industria de ladrillos y cerámica"]},
+                {"name": "CALIZAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/caliza.jpeg", "info": ["Yacimientos de calizas"]},
+                {"name": "MATERIALES DE CONSTRUCCIÓN", "type": "No Metálico", "image": "", "info": ["Diversos materiales para construcción"]},
+                {"name": "MINERALES NO METÁLICOS VARIOS", "type": "No Metálico", "image": "", "info": ["Diversos minerales no metálicos"]}
+            ]},
+            "Imbabura": {"minerals": [
+                {"name": "ORO", "type": "Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/oro.jpeg", "info": ["Yacimientos auríferos"]},
+                {"name": "COBRE", "type": "Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/cobre.jpeg", "info": ["Depósitos cupríferos"]},
+                {"name": "PLATA", "type": "Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/plata.jpeg", "info": ["Yacimientos de plata"]},
+                {"name": "ZINC", "type": "Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/zinc.jpeg", "info": ["Depósitos de zinc"]},
+                {"name": "MOLIBDENO", "type": "Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/molibdeno.jpeg", "info": ["Yacimientos de molibdeno"]},
+                {"name": "ARCILLAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/arcilla.jpeg", "info": ["Depósitos de arcillas"]},
+                {"name": "MATERIALES DE CONSTRUCCIÓN", "type": "No Metálico", "image": "", "info": ["Diversos materiales para construcción"]},
+                {"name": "CALIZAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/caliza.jpeg", "info": ["Yacimientos de calizas"]}
+            ]},
+            "Loja": {"minerals": [
+                {"name": "ORO", "type": "Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/oro.jpeg", "info": ["Yacimientos auríferos en la provincia"]},
+                {"name": "PUZOLANAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/puzolana.jpeg", "info": ["Depósitos importantes de puzolanas"]},
+                {"name": "CAOLÍN", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/caolin.jpeg", "info": ["Yacimientos de caolín"]},
+                {"name": "ARCILLAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/arcilla.jpeg", "info": ["Depósitos de arcillas"]},
+                {"name": "MATERIALES DE CONSTRUCCIÓN", "type": "No Metálico", "image": "", "info": ["Diversos materiales para construcción"]}
+            ]},
+            "Los Ríos": {"minerals": []},
+            "Manabí": {"minerals": [
+                {"name": "ARENAS NEGRAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/arena-negra.jpeg", "info": [
+                    "Playa de Pedernales con depósitos de arenas negras",
+                    "Coordenadas: 0°4'53.20\"N–80°3'18.14\"W",
+                    "Muestra SMP-204: Sitio prioritario con alto contenido de óxidos de Fe-Ti",
+                    "Minerales ferrotitaníferos de origen volcánico"
+                ]}
+            ]},
+            "Morona Santiago": {"minerals": [
+                {"name": "COBRE", "type": "Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/cobre.jpeg", "info": ["Importantes depósitos cupríferos"]},
+                {"name": "ORO", "type": "Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/oro.jpeg", "info": ["Yacimientos auríferos"]},
+                {"name": "PLATA", "type": "Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/plata.jpeg", "info": ["Depósitos de plata"]},
+                {"name": "ARCILLAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/arcilla.jpeg", "info": ["Yacimientos de arcillas"]},
+                {"name": "MATERIALES DE CONSTRUCCIÓN", "type": "No Metálico", "image": "", "info": ["Diversos materiales para construcción"]}
+            ]},
+            "Napo": {"minerals": [
+                {"name": "ORO", "type": "Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/oro.jpeg", "info": ["Potencial aurífero al sur de la provincia"]},
+                {"name": "CALIZAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/caliza.jpeg", "info": ["Formación Napo - yacimientos importantes"]},
+                {"name": "FOSFORITAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/fosforita.jpeg", "info": ["100 Mt entre Reventador y Lumbaquí", "Depósitos significativos"]}
+            ]},
+            "Orellana": {"minerals": []},
+            "Pastaza": {"minerals": []},
+            "Pichincha": {"minerals": [
+                {"name": "MATERIALES DE CONSTRUCCIÓN", "type": "No Metálico", "image": "", "info": ["Provincia con mayor actividad en minerales no metálicos"]},
+                {"name": "ARCILLAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/arcilla.jpeg", "info": ["Importantes depósitos de arcillas"]},
+                {"name": "CALIZAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/caliza.jpeg", "info": ["Yacimientos de calizas"]}
+            ]},
+            "Santa Elena": {"minerals": [
+                {"name": "ARENAS NEGRAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/arena-negra.jpeg", "info": [
+                    "Playas con depósitos de arenas negras ricas en óxidos de Fe-Ti",
+                    "Playa Anconcito - 2 sitios (2°16'23.77\"S–80°55'23.96\"W y 2°16'23.30\"S–80°55'23.22\"W)",
+                    "Muestra SYA-104 (Anconcito): Mayor contenido de hierro - 6.91%",
+                    "Playa Olón (1°48'46.54\"S–80°45'24.78\"W)",
+                    "Norte de Montañita (1°53'59.67\"S–80°45'26.21\"W)",
+                    "Minerales ferrotitaníferos de origen volcánico"
+                ]}
+            ]},
+            "Tungurahua": {"minerals": []},
+            "Zamora Chinchipe": {"minerals": [
+                {"name": "ORO", "type": "Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/oro.jpeg", "info": ["Importantes yacimientos auríferos"]},
+                {"name": "COBRE", "type": "Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/cobre.jpeg", "info": ["Grandes depósitos cupríferos", "Proyectos mineros de gran escala"]},
+                {"name": "PLATA", "type": "Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/plata.jpeg", "info": ["Depósitos de plata"]},
+                {"name": "CALIZA", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/caliza.jpeg", "info": ["Formación Napo - yacimientos de caliza"]}
+            ]},
+            "Sucumbíos": {"minerals": [
+                {"name": "FOSFORITAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/fosforita.jpeg", "info": ["Depósitos de fosforitas"]},
+                {"name": "CALIZAS", "type": "No Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/caliza.jpeg", "info": ["Formación Napo - yacimientos de calizas"]},
+                {"name": "MATERIALES DE CONSTRUCCIÓN", "type": "No Metálico", "image": "", "info": ["Diversos materiales para construcción"]}
+            ]},
+            "Santo Domingo de los Tsáchilas": {"minerals": [
+                {"name": "COBRE", "type": "Metálico", "image": "https://emilyruales-beep.github.io/mapa-minero-ecuador/cobre.jpeg", "info": ["Potencial cuprifero en la zona"]},
+                {"name": "MATERIALES DE CONSTRUCCIÓN", "type": "No Metálico", "image": "", "info": ["Diversos materiales para construcción"]},
+                {"name": "MINERALES NO METÁLICOS", "type": "No Metálico", "image": "", "info": ["Diversos minerales no metálicos"]}
+            ]},
+            "Galápagos": {"minerals": [
+                {"name": "AZUFRE", "type": "No Metálico", "image": "", "info": ["Depósitos volcánicos de azufre", "Asociado a actividad volcánica de las islas"]}
+            ]}
+        };
+
+        const provinces = Object.keys(miningData).sort();
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderProvinceList();
+            setupSearch();
+        });
+
+        function renderProvinceList() {
+            const list = document.getElementById('provinceList');
+            list.innerHTML = '';
+            
+            provinces.forEach(province => {
+                const btn = document.createElement('button');
+                btn.className = 'province-btn';
+                const data = miningData[province];
+                const count = data.minerals ? data.minerals.length : 0;
+                
+                btn.innerHTML = `
+                    <span class="province-name">${province}</span>
+                    <span class="province-badge">${count} mineral${count !== 1 ? 'es' : ''}</span>
+                `;
+                
+                btn.addEventListener('click', () => {
+                    if (count > 0) {
+                        showProvince(province);
+                    } else {
+                        alert('Esta provincia no tiene datos mineros registrados.');
+                    }
+                });
+                
+                list.appendChild(btn);
+            });
+        }
+
+        function setupSearch() {
+            const searchInput = document.getElementById('searchInput');
+            searchInput.addEventListener('input', (e) => {
+                const term = e.target.value.toLowerCase();
+                document.querySelectorAll('.province-btn').forEach(btn => {
+                    const name = btn.querySelector('.province-name').textContent.toLowerCase();
+                    btn.style.display = name.includes(term) ? 'flex' : 'none';
+                });
+            });
+        }
+
+        function showProvince(provinceName) {
+            const data = miningData[provinceName];
+            if (!data || !data.minerals || data.minerals.length === 0) {
+                alert('Esta provincia no tiene datos mineros registrados.');
+                return;
+            }
+            
+            document.getElementById('mainView').style.display = 'none';
+            const detailView = document.getElementById('detailView');
+            detailView.className = 'detail-view active';
+            
+            let html = `
+                <div class="main-view">
+                    <div class="detail-header">
+                        <h2>${provinceName}</h2>
+                        <p class="subtitle">${data.minerals.length} ${data.minerals.length === 1 ? 'recurso mineral identificado' : 'recursos minerales identificados'}</p>
+                        <button class="back-btn" onclick="backToMain()">← Volver al Mapa</button>
+                    </div>
+                    <div class="minerals-grid">
+            `;
+            
+            data.minerals.forEach(mineral => {
+                html += `
+                    <div class="mineral-card">
+                        <div class="mineral-header">
+                            <div class="mineral-name">
+                                <span class="mineral-icon"></span>
+                                ${mineral.name}
+                                ${mineral.type ? `<span class="mineral-type-badge ${mineral.type === 'Metálico' ? 'metallic' : 'non-metallic'}">${mineral.type}</span>` : ''}
+                            </div>
+                        </div>
+                        ${mineral.image ? `<div class="mineral-image-container"><img src="${mineral.image}" alt="${mineral.name}" class="mineral-image" onerror="this.style.display='none'"></div>` : ''}
+                        <div class="mineral-body">
+                            <ul>
+                                ${mineral.info.map(item => `<li>${item}</li>`).join('')}
+                            </ul>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div></div>';
+            detailView.innerHTML = html;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function backToMain() {
+            document.getElementById('mainView').style.display = 'block';
+            document.getElementById('detailView').className = 'detail-view';
+            document.getElementById('detailView').innerHTML = '';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
